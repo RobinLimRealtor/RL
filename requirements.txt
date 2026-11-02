@@ -1,0 +1,7 @@
+anthropic>=2.3,<3
+faster-whisper>=1.2,<2
+imageio-ffmpeg>=0.6
+numpy>=1.26
+flask>=3.0,<4
+waitress>=3.0,<4
+requests>=2.31,<3

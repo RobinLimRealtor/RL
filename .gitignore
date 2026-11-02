@@ -1,0 +1,12 @@
+# Local data: your videos, edits, settings and API keys never go to GitHub
+workspace/
+my-broll/
+library/music/*
+!library/music/README.txt
+library/sfx/*
+!library/sfx/README.txt
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store

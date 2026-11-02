@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auto Video Editor</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">▶</span> Auto Video Editor</div>
+  <div class="pills" id="pills"></div>
+  <button class="ghost" id="settingsBtn">Settings</button>
+</header>
+
+<div class="layout">
+  <aside>
+    <button class="primary wide" id="newBtn">+ New video</button>
+    <h3>Your videos</h3>
+    <ul id="jobList"><li class="muted small">Nothing yet.</li></ul>
+  </aside>
+
+  <main>
+    <!-- New edit -->
+    <section id="newView" class="card">
+      <h1>Upload a video, say what you want</h1>
+      <p class="muted">Your video stays on this computer. The finished edit is ready to post.</p>
+      <label class="drop" id="drop">
+        <input type="file" id="fileInput" accept="video/*" hidden>
+        <div class="drop-inner">
+          <div class="big">⬆</div>
+          <div id="dropText"><b>Drop your video here</b> or click to choose</div>
+        </div>
+      </label>
+      <label class="lbl" for="prompt">What should I do?</label>
+      <textarea id="prompt" rows="3" placeholder="e.g. Tighten the pauses, add bold captions, put b-roll over the kitchen part, upbeat music and a whoosh on each b-roll"></textarea>
+      <div class="chips" id="examples">
+        <button class="chip">Tighten the pauses, bold captions, upbeat music</button>
+        <button class="chip">Vertical for Reels, captions, b-roll, whoosh sounds</button>
+        <button class="chip">Home tour: calm luxury music, no captions</button>
+        <button class="chip">YouTube 16:9, clean captions, inspiring music</button>
+      </div>
+      <button class="primary big-btn" id="goBtn" disabled>Make my video</button>
+      <div class="upload hidden" id="uploadBox"><div class="bar"><span id="uploadBar"></span></div><span id="uploadText" class="small muted"></span></div>
+    </section>
+
+    <!-- Job -->
+    <section id="jobView" class="hidden">
+      <div class="job-head">
+        <h1 id="jobTitle"></h1>
+      </div>
+      <div class="card progress hidden" id="progressCard">
+        <div class="row"><div class="spinner"></div><b id="stepText">Working…</b></div>
+        <div class="bar"><span id="progBar"></span></div>
+        <p class="small muted">You can leave this page open and come back. Longer videos take a few minutes.</p>
+      </div>
+      <div class="card error hidden" id="errorCard"><b>That didn't work.</b><pre id="errorText"></pre></div>
+
+      <div class="card hidden" id="resultCard">
+        <div class="versions" id="versions"></div>
+        <video id="player" controls playsinline></video>
+        <div class="what">
+          <h3>What I did</h3>
+          <p id="summary"></p>
+          <p class="small muted" id="stats"></p>
+        </div>
+        <div class="row gap">
+          <a class="primary btn" id="dlVideo">Download video</a>
+          <a class="ghost btn" id="dlSrt">Download captions (.srt)</a>
+        </div>
+      </div>
+
+      <div class="card" id="reviseCard">
+        <label class="lbl" for="revise">Want changes?</label>
+        <textarea id="revise" rows="2" placeholder="e.g. less music, cut the first 5 seconds, make the captions smaller, more b-roll"></textarea>
+        <button class="primary" id="reviseBtn">Update video</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Settings -->
+<div class="modal hidden" id="settings">
+  <div class="sheet">
+    <div class="row between"><h2>Settings</h2><button class="ghost" id="closeSettings">✕</button></div>
+
+    <h3>Smart editing (Claude)</h3>
+    <p class="small muted">With a Claude API key, the editor understands any request, picks the best b-roll moments and removes bad takes. Without one, it runs in simple mode. Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> (usually a few cents per video).</p>
+    <input id="anthropicKey" placeholder="sk-ant-…" autocomplete="off">
+
+    <h3>Stock b-roll (Pexels, free)</h3>
+    <p class="small muted">Lets the editor download free stock clips when your own folder doesn't have a match. Free key at <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a>.</p>
+    <input id="pexelsKey" placeholder="Pexels API key" autocomplete="off">
+
+    <h3>Your b-roll</h3>
+    <p class="small muted">Folder with your own clips (house exteriors, rooms, drone shots, you walking in…). The editor looks at each clip to know what's in it. <span id="brollCount"></span></p>
+    <input id="brollFolder">
+    <label class="ghost btn file-btn">Add clips to this folder<input type="file" id="brollUpload" accept="video/*" multiple hidden></label>
+
+    <h3>Music</h3>
+    <p class="small muted">Add royalty-free songs (for example from the YouTube Audio Library) and tag them with a mood. Until you do, simple built-in tracks are used. <span id="musicCount"></span></p>
+    <div class="row gap">
+      <select id="musicMood">
+        <option value="upbeat">Upbeat</option><option value="calm">Calm</option><option value="inspiring">Inspiring</option>
+        <option value="luxury">Luxury</option><option value="dramatic">Dramatic</option><option value="fun">Fun</option>
+      </select>
+      <label class="ghost btn file-btn">Add songs<input type="file" id="musicUpload" accept="audio/*" multiple hidden></label>
+    </div>
+
+    <h3>Speech recognition</h3>
+    <select id="whisperModel">
+      <option value="base">Fast (less accurate)</option>
+      <option value="small">Balanced (recommended)</option>
+      <option value="medium">Accurate (slower)</option>
+      <option value="large-v3">Most accurate (slowest)</option>
+    </select>
+
+    <div class="row between foot">
+      <span class="small" id="settingsMsg"></span>
+      <button class="primary" id="saveSettings">Save</button>
+    </div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
