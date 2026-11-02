@@ -12,9 +12,9 @@ import traceback
 import uuid
 from pathlib import Path
 
-from . import config, library, planner, stock
+from . import config, library, planner, stock, styles
 from .cutting import TimeMap, keep_segments
-from .ffmpeg_tools import extract_audio, extract_frame, probe
+from .ffmpeg_tools import detect_scenes, extract_audio, extract_frame, probe
 from .render import BrollPlacement, SfxPlacement, render
 from .transcribe import load_or_transcribe
 
@@ -64,7 +64,7 @@ def list_jobs() -> list[dict]:
     return jobs
 
 
-def create(upload_name: str, save_upload, prompt: str) -> dict:
+def create(upload_name: str, save_upload, prompt: str, style_id: str = "") -> dict:
     job_id = uuid.uuid4().hex[:12]
     d = config.JOBS_DIR / job_id
     d.mkdir(parents=True)
@@ -77,7 +77,14 @@ def create(upload_name: str, save_upload, prompt: str) -> dict:
         "id": job_id, "name": Path(upload_name).name or "video", "source": src.name,
         "created": time.time(), "status": "queued", "step": "Waiting to start", "progress": 0.0,
         "error": "", "versions": [], "pending_prompt": prompt,
+        "style": "", "style_name": "",
     }
+    if style_id:
+        try:
+            st = styles.load(style_id)
+            job.update(style=st["id"], style_name=st["name"])
+        except KeyError:
+            pass
     save(job)
     enqueue(job_id, prompt)
     return job
@@ -143,22 +150,40 @@ def process(job_id: str, prompt: str) -> None:
     history = [v["prompt"] for v in job["versions"]]
     shape = "portrait (vertical)" if info.height > info.width else "landscape"
     note = ""
+    style = None
+    if job.get("style"):
+        try:
+            style = styles.load(job["style"])
+            if style.get("status") != "ready":
+                style = None
+        except KeyError:
+            note += " (The saved style was deleted, so I edited without it.)"
     if api_key:
         try:
             raw = planner.plan_with_claude(
                 api_key=api_key, model=model, prompt=prompt, transcript=transcript, duration=info.duration,
                 video_shape=shape, own_clips=own_clips, stock_available=has_stock,
                 music_tracks=library.music_tracks(), sfx_names=library.sfx_names(),
-                previous_plan=previous, history=history)
+                previous_plan=previous, history=history, style=style)
         except Exception as exc:  # noqa: BLE001 - fall back to simple rules, but tell the user
-            raw = planner.plan_with_rules(prompt, transcript, own_clips, previous)
+            raw = planner.plan_with_rules(prompt, transcript, own_clips, previous, style)
             note = f" (Claude couldn't be reached: {str(exc)[:160]}. Used simple mode instead.)"
     else:
-        raw = planner.plan_with_rules(prompt, transcript, own_clips, previous)
+        raw = planner.plan_with_rules(prompt, transcript, own_clips, previous, style)
     plan = planner.normalize_plan(raw, info.duration, own_clips, library.sfx_names())
 
     # Work out timings on the edited timeline
-    segments = keep_segments(transcript["words"], info.duration, plan["cut"], info.fps)
+    max_shot = plan["pace"]["max_shot_seconds"]
+    scenes = None
+    if max_shot and not transcript["words"]:
+        cache = d / "scenes.json"
+        if cache.exists():
+            scenes = json.loads(cache.read_text("utf-8"))
+        else:
+            update(job_id, step="Finding the shots", progress=0.39)
+            scenes = detect_scenes(src)
+            cache.write_text(json.dumps(scenes), "utf-8")
+    segments = keep_segments(transcript["words"], info.duration, plan["cut"], info.fps, scenes, max_shot)
     tmap = TimeMap(segments)
     broll, used_stock, skipped = [], set(), 0
     portrait = plan["format"] == "vertical" or (plan["format"] == "original" and info.height > info.width)
@@ -196,6 +221,14 @@ def process(job_id: str, prompt: str) -> None:
     if on_broll != "none" and library.sfx_path(on_broll):
         for b in broll:
             sfx.append(SfxPlacement(library.sfx_path(on_broll), max(0.0, b.out_start - 0.2), 0.45))
+    if scenes is not None and on_broll != "none" and library.sfx_path(on_broll):
+        # Footage without talking: a sound on the cuts between shots (not too often).
+        last = -10.0
+        for i in range(1, len(segments)):
+            t = tmap.offsets[i]
+            if t - last >= 2.5 and not any(abs(t - b.out_start) < 1 for b in broll):
+                sfx.append(SfxPlacement(library.sfx_path(on_broll), max(0.0, t - 0.2), 0.35))
+                last = t
     for item in plan["sfx"]["items"]:
         p = library.sfx_path(item["sound"])
         if p:
@@ -221,7 +254,7 @@ def process(job_id: str, prompt: str) -> None:
         "n": n, "prompt": prompt, "summary": (plan["summary"] + note).strip(), "plan": plan,
         "file": out.name, "srt": srt.name, "created": time.time(),
         "duration": round(tmap.duration, 2), "original_duration": round(info.duration, 2),
-        "broll_count": len(broll),
+        "broll_count": len(broll), "style_name": style["name"] if style else "",
     }
     with _lock:
         job = load(job_id)

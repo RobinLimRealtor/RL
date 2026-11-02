@@ -71,3 +71,11 @@ video { width: 100%; max-height: 62vh; background: #000; border-radius: 12px; ma
   header { padding: 10px 16px; }
 }
 @media (max-width: 760px) { .pills { display: none; } }
+
+.small-drop { padding: 18px; margin: 12px 0; }
+.style-row select { min-width: 220px; }
+.style-list { list-style: none; padding: 0; margin: 0; }
+.style-list li.style { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.style-list .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.style-list .del { font-size: 12px; padding: 4px 10px; }
+.style-list p { margin: 6px 0 0; font-size: 13px; }

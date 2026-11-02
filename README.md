@@ -51,6 +51,14 @@ When it's ready, your browser opens the editor. **Keep the black window open whi
 3. Watch the result, read **What I did**, and click **Download video**.
 4. Want changes? Type them in **Want changes?** and click **Update video**. For example: *less music*, *no captions*, *make it tighter*, *more b-roll*, *switch to calm music*. Each change makes a new version, and you can flip between versions.
 
+### Copy the style of a video you like
+
+1. Get the video you like onto your computer. For an Instagram reel, screen-record it on your phone with the sound on, then send the recording to your computer.
+2. On the **New video** screen, click **+ Copy a style from a video**. Give the style a name, for example *Luxury tour*, choose the video, and click **Learn this style**.
+3. After a minute or two the style appears in the **Style** box. Pick it whenever you make a new video.
+
+The editor learns how fast the video cuts, the shape, the caption look, the music feel and the sound effects. For home tours without talking, your shots are trimmed to the same rhythm. It never uses the other video's footage or sound, and it deletes that video after studying it. Smart mode (below) gives the most accurate style copy.
+
 ---
 
 ## 3. Smart mode (recommended)
@@ -116,6 +124,7 @@ autoedit/
   render.py       ffmpeg: cut segments, concat, overlay b-roll, captions, music ducking, SFX, loudness
   library.py      own b-roll scan and AI tagging, music/SFX library, built-in synthesized audio
   stock.py        Pixabay / Pexels stock video search and download
+  styles.py       "copy a style": measure a reference video (cuts, look) into a saved preset
   static/         the web page
 ```
 

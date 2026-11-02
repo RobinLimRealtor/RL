@@ -25,6 +25,7 @@ DEFAULT_PLAN = {
     "broll": [],
     "music": {"enabled": True, "mood": "upbeat", "track": "", "volume": 0.5, "duck": True},
     "sfx": {"on_broll": "whoosh", "items": []},
+    "pace": {"max_shot_seconds": 0},
 }
 
 _range = {
@@ -88,6 +89,15 @@ PLAN_SCHEMA = {
             "required": ["enabled", "mood", "track", "volume", "duck"],
             "additionalProperties": False,
         },
+        "pace": {
+            "type": "object",
+            "properties": {
+                "max_shot_seconds": {"type": "number",
+                                     "description": "Footage without talking only: longest a shot may stay on screen. 0 = keep shots as they are."},
+            },
+            "required": ["max_shot_seconds"],
+            "additionalProperties": False,
+        },
         "sfx": {
             "type": "object",
             "properties": {
@@ -106,7 +116,7 @@ PLAN_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": ["summary", "format", "cut", "captions", "broll", "music", "sfx"],
+    "required": ["summary", "format", "cut", "captions", "broll", "music", "sfx", "pace"],
     "additionalProperties": False,
 }
 
@@ -137,6 +147,12 @@ How the plan works:
 - sfx: on_broll plays a sound as each b-roll clip appears (e.g. "whoosh") or "none".
   items are extra one-off sounds at specific times (e.g. a "ding" on a price reveal). Use only
   sound names from the list. Keep it tasteful: a few well-placed sounds, not dozens.
+- pace: only for footage WITHOUT talking (e.g. a silent home tour). max_shot_seconds trims every
+  shot to that length (long single takes become a series of short pieces), for a quick reel rhythm.
+  ~1.5-2.5 for fast social reels, ~3-5 for calm cinematic tours, 0 to keep shots as filmed.
+  It has no effect when someone is talking (talking is cut by the cut settings instead).
+- style: if a saved style is given, follow it closely (pacing, captions, music, effects, format)
+  unless the user's request says otherwise.
 - format: original keeps the camera's shape; vertical = 9:16 (Reels/TikTok/Shorts),
   landscape = 16:9 (YouTube), square = 1:1.
 
@@ -220,6 +236,9 @@ def normalize_plan(plan: dict, duration: float, own_clips: list[dict], sfx_names
         {"time": _clamp(i.get("time"), 0, duration, 0), "sound": i["sound"]}
         for i in sfx.get("items", []) if isinstance(i, dict) and i.get("sound") in sfx_names
     ][:40]
+    pace = out["pace"] if isinstance(out.get("pace"), dict) else {}
+    max_shot = _clamp(pace.get("max_shot_seconds"), 0, 15, 0)
+    out["pace"] = {"max_shot_seconds": 0 if max_shot < 0.8 else round(max_shot, 1)}
     out["summary"] = str(out.get("summary") or "")
     return out
 
@@ -275,8 +294,20 @@ def _parse_json(text: str) -> dict:
         return json.loads(m.group(0))
 
 
+def style_text(style: dict | None) -> str:
+    if not style:
+        return ""
+    return (f"Saved style to follow: \"{style.get('name', '')}\"\n"
+            f"What the reference video looks like: {style.get('description', '')}\n"
+            f"How to edit in this style: {style.get('instructions', '')}\n"
+            f"Measured from the reference: about {style.get('shot_seconds', 0)} seconds per shot, "
+            f"{'has' if style.get('has_speech') else 'no'} talking.\n"
+            f"Suggested settings (JSON): {json.dumps(style.get('hints', {}))}")
+
+
 def plan_with_claude(*, api_key, model, prompt, transcript, duration, video_shape, own_clips,
-                     stock_available, music_tracks, sfx_names, previous_plan=None, history=None) -> dict:
+                     stock_available, music_tracks, sfx_names, previous_plan=None, history=None,
+                     style=None) -> dict:
     own_list = "\n".join(
         f"- {c['file']} ({c['duration']}s, {'portrait' if c['portrait'] else 'landscape'}): {c['description']}"
         for c in own_clips[:300]
@@ -292,6 +323,8 @@ def plan_with_claude(*, api_key, model, prompt, transcript, duration, video_shap
         f"User's own b-roll clips:\n{own_list}",
         f"Transcript (original timeline):\n{transcript_text(transcript)}",
     ]
+    if style:
+        parts.append(style_text(style))
     if previous_plan is not None:
         earlier = "\n".join(f"- {h}" for h in (history or [])) or "(none)"
         parts.append(f"Earlier requests for this video:\n{earlier}")
@@ -347,16 +380,34 @@ def _keyword_broll(transcript: dict, own_clips: list[dict], duration: float) -> 
     return picks
 
 
-def plan_with_rules(prompt, transcript, own_clips, previous_plan=None) -> dict:
+def apply_hints(plan: dict, hints: dict) -> dict:
+    for key, val in (hints or {}).items():
+        if isinstance(val, dict) and isinstance(plan.get(key), dict):
+            plan[key].update(val)
+        elif key in plan:
+            plan[key] = val
+    return plan
+
+
+def plan_with_rules(prompt, transcript, own_clips, previous_plan=None, style=None) -> dict:
     p = (prompt or "").lower()
     plan = copy.deepcopy(previous_plan) if previous_plan else copy.deepcopy(DEFAULT_PLAN)
+    if style and not previous_plan:
+        apply_hints(plan, style.get("hints", {}))
     notes = []
     has_speech = bool(transcript.get("words"))
     if not previous_plan:
+        if style:
+            notes.append(f"used your \"{style.get('name', 'saved')}\" style")
         if not has_speech:
             plan["captions"]["enabled"] = False
             plan["music"]["volume"] = 0.8
-        notes.append("I removed the pauses and filler words" if has_speech else "There was no talking, so I kept the footage as is")
+        if has_speech:
+            notes.append("I removed the pauses and filler words")
+        elif plan["pace"].get("max_shot_seconds"):
+            notes.append(f"I trimmed the shots to a quick rhythm (about {plan['pace']['max_shot_seconds']}s each)")
+        else:
+            notes.append("there was no talking, so I kept your shots as filmed")
     if _has(p, "vertical", "reel", "reels", "tiktok", "shorts", "short", "9:16", "portrait", "instagram"):
         plan["format"] = "vertical"
         notes.append("made it vertical for Reels/TikTok")
@@ -365,12 +416,17 @@ def plan_with_rules(prompt, transcript, own_clips, previous_plan=None) -> dict:
         notes.append("made it 16:9 for YouTube")
     elif _has(p, "square", "1:1"):
         plan["format"] = "square"
-    if _has(p, "tight", "tighter", "fast", "faster", "snappy", "punchy"):
+    if _has(p, "tight", "tighter", "fast", "faster", "snappy", "punchy", "quick", "quicker"):
         plan["cut"]["tightness"] = "tight"
+        if not has_speech:
+            cur = plan["pace"].get("max_shot_seconds") or 3.0
+            plan["pace"]["max_shot_seconds"] = max(1.0, round(cur * 0.7, 1))
         notes.append("tightened the cuts")
     elif _has(p, "loose", "looser", "slower", "relaxed", "natural"):
         plan["cut"]["tightness"] = "loose"
-        notes.append("left more natural pauses")
+        if not has_speech and plan["pace"].get("max_shot_seconds"):
+            plan["pace"]["max_shot_seconds"] = round(plan["pace"]["max_shot_seconds"] * 1.4, 1)
+        notes.append("left more natural pauses" if has_speech else "let the shots run longer")
     if _has(p, "keep the pauses", "don't cut", "no cuts", "dont cut"):
         plan["cut"]["enabled"] = False
     if re.search(r"\bno (captions|subtitles)\b|without (captions|subtitles)|remove (the )?(captions|subtitles)", p):
@@ -414,7 +470,8 @@ def plan_with_rules(prompt, transcript, own_clips, previous_plan=None) -> dict:
         if plan["broll"]:
             notes.append(f"added {len(plan['broll'])} b-roll clip(s) from your folder")
     if plan["music"]["enabled"] and not previous_plan:
-        notes.append(f"added {plan['music']['mood']} background music that dips under your voice")
+        notes.append(f"added {plan['music']['mood']} background music"
+                     + (" that dips under your voice" if has_speech else ""))
     if plan["captions"]["enabled"] and not previous_plan and has_speech:
         notes.append("added captions")
     text = ", ".join(notes) or "Updated the edit"

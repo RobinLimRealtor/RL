@@ -148,3 +148,15 @@ def run_with_progress(args: list[str], total: float, progress=None, cwd=None) ->
     if proc.returncode != 0:
         tail = "".join(err_lines[-25:])
         raise FFmpegError(f"ffmpeg failed:\n{tail}")
+
+
+def detect_scenes(path: str | Path, threshold: float = 0.3) -> list[float]:
+    """Times (seconds) where the picture cuts to a new shot."""
+    text = run(["-i", path, "-an", "-vf", f"scale=320:-2,select='gt(scene,{threshold})',showinfo",
+                "-f", "null", "-"])
+    times = []
+    for m in re.finditer(r"Parsed_showinfo.*?pts_time:\s*([\d.]+)", text):
+        t = float(m.group(1))
+        if not times or t - times[-1] > 0.25:
+            times.append(t)
+    return times

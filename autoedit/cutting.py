@@ -46,14 +46,41 @@ def _subtract(segments, ranges):
     return out
 
 
-def keep_segments(words, duration, cut_plan, fps=30.0):
+def paced_segments(duration, scenes, max_shot):
+    """Footage without talking: trim every shot to at most `max_shot` seconds.
+
+    Long single takes (e.g. one continuous walk-through) become a series of short
+    pieces with the in-between skipped, which gives the quick "reel" rhythm.
+    """
+    bounds = [0.0] + [t for t in scenes if 0 < t < duration] + [duration]
+    segs = []
+    for s, e in zip(bounds, bounds[1:]):
+        length = e - s
+        if length < 0.4:
+            continue
+        if length <= max_shot * 1.15:
+            segs.append((s, e))
+        elif length <= max_shot * 3:
+            start = s + min((length - max_shot) / 2, 1.0)
+            segs.append((start, start + max_shot))
+        else:
+            t = s + 0.3
+            while t + max_shot <= e:
+                segs.append((t, t + max_shot))
+                t += max_shot * 2
+    return segs
+
+
+def keep_segments(words, duration, cut_plan, fps=30.0, scenes=None, max_shot=0.0):
     """Return a list of (start, end) source ranges to keep, in order."""
     remove = sorted(
         (max(0.0, float(r["start"])), min(duration, float(r["end"])))
         for r in cut_plan.get("remove_ranges", [])
         if float(r["end"]) > float(r["start"])
     )
-    if not cut_plan.get("enabled", True) or not words:
+    if not words and max_shot > 0 and scenes is not None:
+        segs = _subtract(paced_segments(duration, scenes, max_shot), remove)
+    elif not cut_plan.get("enabled", True) or not words:
         segs = _subtract([(0.0, duration)], remove)
     else:
         max_pause = PAUSE.get(cut_plan.get("tightness", "normal"), PAUSE["normal"])

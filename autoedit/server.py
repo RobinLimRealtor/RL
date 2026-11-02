@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 
-from . import __version__, config, jobs, library
+from . import __version__, config, jobs, library, styles
 
 STATIC = Path(__file__).parent / "static"
 app = Flask(__name__, static_folder=None)
@@ -127,7 +127,7 @@ def new_job():
     if not f or not f.filename:
         return jsonify({"error": "Please choose a video file."}), 400
     prompt = (request.form.get("prompt") or "").strip()[:4000]
-    job = jobs.create(f.filename, f.save, prompt)
+    job = jobs.create(f.filename, f.save, prompt, (request.form.get("style") or "").strip())
     return jsonify(_public(job))
 
 
@@ -193,3 +193,26 @@ def get_thumb(job_id, n):
     if not path.exists():
         abort(404)
     return send_file(path, mimetype="image/jpeg")
+
+
+@app.get("/api/styles")
+def get_styles():
+    return jsonify(styles.list_styles())
+
+
+@app.post("/api/styles")
+def new_style():
+    f = request.files.get("video")
+    if not f or not f.filename:
+        return jsonify({"error": "Please choose the video whose style you like."}), 400
+    style = styles.create(request.form.get("name") or "", f.save, f.filename)
+    return jsonify(style)
+
+
+@app.delete("/api/styles/<style_id>")
+def delete_style(style_id):
+    try:
+        styles.delete(style_id)
+    except KeyError:
+        abort(404)
+    return jsonify({"ok": True})

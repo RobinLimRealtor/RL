@@ -76,6 +76,7 @@ $("goBtn").onclick = () => {
   const form = new FormData();
   form.append("video", chosenFile);
   form.append("prompt", $("prompt").value);
+  form.append("style", $("styleSelect").value);
   const xhr = new XMLHttpRequest();
   xhr.open("POST", "/api/jobs");
   $("goBtn").disabled = true;
@@ -155,6 +156,7 @@ function renderVersions(versions) {
   $("summary").textContent = v.summary || "";
   const parts = [`${fmtDur(v.original_duration)} → ${fmtDur(v.duration)}`];
   if (v.broll_count) parts.push(`${v.broll_count} b-roll clip${v.broll_count === 1 ? "" : "s"}`);
+  if (v.style_name) parts.push(`Style: ${v.style_name}`);
   if (v.prompt) parts.push(`You asked: “${v.prompt}”`);
   $("stats").textContent = parts.join(" · ");
   $("dlVideo").href = src + "?download=1";
@@ -217,6 +219,91 @@ async function uploadFiles(url, field, files, extra = {}) {
 $("brollUpload").onchange = (e) => uploadFiles("/api/broll", "clips", e.target.files).catch((err) => ($("settingsMsg").textContent = err.message));
 $("musicUpload").onchange = (e) => uploadFiles("/api/music", "tracks", e.target.files, { mood: $("musicMood").value }).catch((err) => ($("settingsMsg").textContent = err.message));
 
+// ---------------------------------------------------------------- styles
+let styleFile = null;
+let stylePoll = null;
+
+async function refreshStyles() {
+  const list = await api("/api/styles");
+  const sel = $("styleSelect");
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">No saved style</option>';
+  for (const s of list.filter((x) => x.status === "ready")) {
+    const o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = s.name;
+    sel.appendChild(o);
+  }
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+  const want = sel.dataset.want;
+  if (want && [...sel.options].some((o) => o.value === want)) { sel.value = want; delete sel.dataset.want; }
+  updateStyleHint(list);
+  const ul = $("styleList");
+  ul.innerHTML = list.length ? "" : '<li class="muted small">No styles yet.</li>';
+  for (const s of list) {
+    const li = document.createElement("li");
+    li.className = "style";
+    const state = s.status === "ready" ? "" : s.status === "error" ? "Couldn't learn this one" : `Learning… ${s.step || ""}`;
+    li.innerHTML = `<div class="top"><b></b><button class="ghost del">Delete</button></div><p class="muted state"></p><p class="desc"></p>`;
+    li.querySelector("b").textContent = s.name;
+    li.querySelector(".state").textContent = s.status === "error" ? `${state}: ${s.error}` : state;
+    li.querySelector(".desc").textContent = s.description || "";
+    li.querySelector(".del").onclick = async () => {
+      if (!confirm(`Delete the style "${s.name}"?`)) return;
+      await api(`/api/styles/${s.id}`, { method: "DELETE" });
+      refreshStyles();
+    };
+    ul.appendChild(li);
+  }
+  clearTimeout(stylePoll);
+  if (list.some((s) => s.status === "analyzing")) stylePoll = setTimeout(refreshStyles, 2000);
+  else if ($("styleMsg").textContent.startsWith("Learning")) $("styleMsg").textContent = "Learned! It's now picked in the Style box.";
+  return list;
+}
+
+function updateStyleHint(list) {
+  const s = (list || []).find((x) => x.id === $("styleSelect").value);
+  $("styleHint").textContent = s ? s.description : "";
+}
+$("styleSelect").onchange = () => api("/api/styles").then(updateStyleHint);
+
+function setStyleFile(f) {
+  styleFile = f;
+  $("styleFileText").innerHTML = f ? "<b></b>" : "<b>Choose the video you like</b> or drop it here";
+  if (f) $("styleFileText").querySelector("b").textContent = f.name;
+  $("learnBtn").disabled = !f;
+}
+$("styleFile").onchange = (e) => setStyleFile(e.target.files[0]);
+const sdrop = $("styleDrop");
+["dragenter", "dragover"].forEach((ev) => sdrop.addEventListener(ev, (e) => { e.preventDefault(); sdrop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => sdrop.addEventListener(ev, (e) => { e.preventDefault(); sdrop.classList.remove("over"); }));
+sdrop.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) setStyleFile(e.dataTransfer.files[0]); });
+
+$("copyStyleBtn").onclick = () => { $("stylesModal").classList.remove("hidden"); refreshStyles(); };
+$("closeStyles").onclick = () => $("stylesModal").classList.add("hidden");
+$("stylesModal").onclick = (e) => { if (e.target.id === "stylesModal") $("stylesModal").classList.add("hidden"); };
+$("learnBtn").onclick = async () => {
+  if (!styleFile) return;
+  const form = new FormData();
+  form.append("video", styleFile);
+  form.append("name", $("styleName").value || "My style");
+  $("learnBtn").disabled = true;
+  $("styleMsg").textContent = "Loading the video…";
+  try {
+    const s = await api("/api/styles", { method: "POST", body: form });
+    $("styleMsg").textContent = "Learning the style. This takes a minute or two. You can close this and pick it when it's ready.";
+    setStyleFile(null);
+    $("styleFile").value = "";
+    $("styleName").value = "";
+    await refreshStyles();
+    $("styleSelect").dataset.want = s.id;
+  } catch (e) {
+    $("styleMsg").textContent = e.message;
+    $("learnBtn").disabled = false;
+  }
+};
+
+refreshStyles();
 refreshStatus();
 refreshList();
 setInterval(refreshStatus, 15000);

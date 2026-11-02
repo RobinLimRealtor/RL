@@ -40,6 +40,12 @@
         <button class="chip">Home tour: calm luxury music, no captions</button>
         <button class="chip">YouTube 16:9, clean captions, inspiring music</button>
       </div>
+      <label class="lbl" for="styleSelect">Style</label>
+      <div class="row gap style-row">
+        <select id="styleSelect"><option value="">No saved style</option></select>
+        <button class="ghost" id="copyStyleBtn" type="button">+ Copy a style from a video</button>
+      </div>
+      <p class="small muted" id="styleHint"></p>
       <button class="primary big-btn" id="goBtn" disabled>Make my video</button>
       <div class="upload hidden" id="uploadBox"><div class="bar"><span id="uploadBar"></span></div><span id="uploadText" class="small muted"></span></div>
     </section>
@@ -121,6 +127,23 @@
       <span class="small" id="settingsMsg"></span>
       <button class="primary" id="saveSettings">Save</button>
     </div>
+  </div>
+</div>
+<!-- Styles -->
+<div class="modal hidden" id="stylesModal">
+  <div class="sheet">
+    <div class="row between"><h2>Copy a style</h2><button class="ghost" id="closeStyles">✕</button></div>
+    <p class="small muted">Give the editor a video whose editing you love (for example a screen recording of a reel). It learns the style: how fast it cuts, the caption look, the music feel and the sound effects. It never uses that video's footage or sound in your edits.</p>
+    <label class="lbl" for="styleName">Name this style</label>
+    <input id="styleName" placeholder="e.g. Luxury tour" maxlength="60">
+    <label class="drop small-drop" id="styleDrop">
+      <input type="file" id="styleFile" accept="video/*" hidden>
+      <div id="styleFileText"><b>Choose the video you like</b> or drop it here</div>
+    </label>
+    <button class="primary" id="learnBtn" disabled>Learn this style</button>
+    <span class="small muted" id="styleMsg"></span>
+    <h3>Your styles</h3>
+    <ul class="style-list" id="styleList"><li class="muted small">No styles yet.</li></ul>
   </div>
 </div>
 <script src="/static/app.js"></script>

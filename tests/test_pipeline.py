@@ -186,3 +186,68 @@ def test_pixabay_pick(env, monkeypatch):
     assert sid == "pixabay:2" and downloaded == ["https://x/2.mp4"]
     assert calls[0][1]["q"] == "modern kitchen"
     assert stock.find_and_download("kitchen", {}, False, 5.0) is None
+
+
+SOURCES = ["testsrc2", "smptebars", "mandelbrot", "rgbtestsrc", "cellauto", "yuvtestsrc"]
+
+
+def _color_clips(tmp: Path, name: str, sources, seconds, size="1080x1920"):
+    """A video made of visibly different shots: a stand-in for real footage with clear cuts."""
+    from autoedit.ffmpeg_tools import run
+
+    parts = []
+    for i, (c, s) in enumerate(zip(sources, seconds)):
+        p = tmp / f"{name}_{i}.mp4"
+        w, h = size.split("x")
+        run(["-t", str(s), "-f", "lavfi", "-i", f"{c}=rate=30",
+             "-f", "lavfi", "-i", f"anoisesrc=d={s}:a=0.02", "-shortest", "-vf", f"scale={w}:{h},setsar=1,format=yuv420p",
+             "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", p])
+        parts.append(p)
+    (tmp / f"{name}.txt").write_text("".join(f"file '{p.name}'\n" for p in parts))
+    out = tmp / f"{name}.mp4"
+    run(["-f", "concat", "-safe", "0", "-i", f"{name}.txt", "-c", "copy", out.name], cwd=tmp)
+    return out
+
+
+def test_paced_segments():
+    from autoedit.cutting import paced_segments
+
+    segs = paced_segments(20.0, [4.0, 6.0], 2.0)
+    assert segs[0] == pytest.approx((1.0, 3.0))       # 4s shot -> middle 2s
+    assert segs[1] == pytest.approx((4.0, 6.0))       # 2s shot kept whole
+    assert all(e - s == pytest.approx(2.0) for s, e in segs[2:])  # 14s take -> several 2s pieces
+    assert len(segs) > 4
+
+
+def test_learn_style_and_apply(env, monkeypatch):
+    import time as _time
+
+    from autoedit import jobs, styles
+    from autoedit.ffmpeg_tools import probe
+
+    # Reference: fast vertical reel, ~1.5s shots, music only.
+    ref = _color_clips(env, "ref", SOURCES, [1.5] * 6)
+    monkeypatch.setattr("autoedit.transcribe.transcribe", lambda *a, **k: {"words": [], "segments": []})
+    style = styles.create("Fast reel", lambda dst: Path(dst).write_bytes(ref.read_bytes()), "ref.mp4")
+    for _ in range(100):
+        style = styles.load(style["id"])
+        if style["status"] != "analyzing":
+            break
+        _time.sleep(0.2)
+    assert style["status"] == "ready", style
+    assert 1.0 <= style["hints"]["pace"]["max_shot_seconds"] <= 3.0  # synthetic cuts: some go undetected
+    assert style["hints"]["format"] == "vertical"
+
+    # Own footage: landscape home tour with long takes and no talking.
+    tour = _color_clips(env, "tour", SOURCES[:3], [6, 8, 6], size="1280x720")
+    job = jobs.create("tour.mp4", lambda dst: Path(dst).write_bytes(tour.read_bytes()), "", style["id"])
+    jobs._queue.get_nowait()
+    (jobs.job_dir(job["id"]) / "transcript.json").write_text(json.dumps({"words": [], "segments": []}))
+    jobs.process(job["id"], "")
+    job = jobs.load(job["id"])
+    assert job["status"] == "done", job
+    v = job["versions"][0]
+    assert v["style_name"] == "Fast reel"
+    out = probe(jobs.job_dir(job["id"]) / v["file"])
+    assert (out.width, out.height) == (1080, 1920)
+    assert out.duration < 14  # 20s of long takes trimmed to the reference's quick rhythm
