@@ -4,6 +4,15 @@
 # (including its own copy of Python) into this folder. No password needed.
 cd "$(dirname "$0")" || exit 1
 HERE="$(pwd)"
+if [ ! -f requirements.txt ] || [ ! -f autoedit/__main__.py ]; then
+  echo ""
+  echo "  The other files of the editor aren't next to this one."
+  echo "  Unzip the downloaded ZIP first (double-click it), then open start-mac.command"
+  echo "  from the new folder."
+  echo ""
+  read -r -p "  Press Enter to close..."
+  exit 1
+fi
 TOOLS="$HERE/.tools"
 UV="$TOOLS/uv"
 export UV_PYTHON_INSTALL_DIR="$TOOLS/python"

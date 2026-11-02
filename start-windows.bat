@@ -1,6 +1,9 @@
 @echo off
 title Auto Video Editor
 cd /d "%~dp0"
+if not exist "%~dp0requirements.txt" goto notextracted
+if not exist "%~dp0autoedit\__main__.py" goto notextracted
+
 rem Nothing to install first: the first start downloads everything it needs
 rem (including its own copy of Python) into this folder. No admin needed.
 
@@ -32,6 +35,18 @@ if errorlevel 1 goto failed
 ".venv\Scripts\python.exe" -m autoedit
 pause
 exit /b 0
+
+:notextracted
+echo.
+echo  It looks like this was opened from inside the ZIP file, so the other files can't be found.
+echo.
+echo  How to fix it:
+echo    1. Close this window.
+echo    2. Find the downloaded ZIP file, right-click it and choose "Extract All...", then click Extract.
+echo    3. In the new folder that opens, double-click start-windows.bat.
+echo.
+pause
+exit /b 1
 
 :failed
 echo.
