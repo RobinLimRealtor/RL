@@ -18,20 +18,21 @@ It runs on your own computer (Windows or Mac). Your videos are never uploaded an
 
 ## 1. One-time setup
 
+You don't need to install anything first. The start file downloads everything it needs (including its own copy of Python) into this folder. It doesn't need an admin password.
+
 ### Windows
 
-1. Install **Python** from <https://www.python.org/downloads/>. On the first install screen, **tick "Add python.exe to PATH"**, then click Install.
-2. Download this project: on the GitHub page click the green **Code** button, then **Download ZIP**. Unzip it somewhere easy, like your Desktop.
-3. Open the folder and double-click **`start-windows.bat`**.
+1. On the GitHub page click the green **Code** button, then **Download ZIP**.
+2. Right-click the ZIP and choose **Extract All**, then open the extracted folder. Don't run it from inside the ZIP.
+3. Double-click **`start-windows.bat`**.
    - If Windows shows "Windows protected your PC", click **More info**, then **Run anyway**.
-   - The first start takes a few minutes while it installs what it needs. After that it starts in seconds.
+   - The first start takes about 5 to 10 minutes while it downloads. After that it starts in seconds.
 
 ### Mac
 
-1. Install **Python** from <https://www.python.org/downloads/> (the normal installer).
-2. Download this project: on the GitHub page click the green **Code** button, then **Download ZIP**. Unzip it somewhere easy, like your Desktop.
-3. Open the folder, **right-click `start-mac.command`, choose Open**, and confirm with **Open**. You only need to right-click the first time. After that a double-click works.
-   - The first start takes a few minutes while it installs what it needs.
+1. On the GitHub page click the green **Code** button, then **Download ZIP**. Double-click the ZIP to unzip it.
+2. Open the folder, **right-click `start-mac.command`, choose Open**, and confirm with **Open**. You only need to right-click the first time. After that a double-click works.
+   - The first start takes about 5 to 10 minutes while it downloads.
 
 When it's ready, your browser opens the editor. **Keep the black window open while you use it.** Closing that window stops the app.
 
@@ -86,8 +87,7 @@ For stock footage when your own clips don't fit, get a free key at <https://www.
 
 ## 6. If something goes wrong
 
-- **"Python … was not found"**: install Python (step 1), then start again. On Windows make sure "Add python.exe to PATH" was ticked. If not, run the installer again, choose **Modify**, and tick it.
-- **Setup failed**: check your internet connection and start again. Still failing? Delete the `.venv` folder in this project and start again. On a Mac, `.venv` is hidden, so press Cmd+Shift+. in Finder to show it.
+- **Setup didn't finish**: check your internet connection and double-click the start file again. Still failing? Delete the `.tools` and `.venv` folders in this project and try again. On a Mac they're hidden, so press Cmd+Shift+. in Finder to show them.
 - **Mac says the file can't be opened**: right-click `start-mac.command` and choose **Open**. If that doesn't work, open the Terminal app, type `bash ` (with a space), drag `start-mac.command` into the window, and press Enter.
 - **An edit shows "Needs attention"**: the message underneath says what went wrong. Type your request again to retry.
 - **Slow?** Longer videos take a few minutes. In Settings you can choose **Fast** speech recognition.
