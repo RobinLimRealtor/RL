@@ -15,13 +15,13 @@ from pathlib import Path
 from .library import MOODS
 
 FORMATS = ["original", "landscape", "vertical", "square"]
-CAPTION_STYLES = ["bold", "clean", "boxed"]
+CAPTION_STYLES = ["bold", "reel", "clean", "boxed"]
 
 DEFAULT_PLAN = {
     "summary": "",
     "format": "original",
     "cut": {"enabled": True, "tightness": "normal", "remove_fillers": True, "remove_ranges": []},
-    "captions": {"enabled": True, "style": "bold", "position": "bottom", "words_per_line": 3},
+    "captions": {"enabled": True, "style": "bold", "position": "bottom", "words_per_line": 3, "keywords": []},
     "broll": [],
     "music": {"enabled": True, "mood": "upbeat", "track": "", "volume": 0.5, "duck": True},
     "sfx": {"on_broll": "whoosh", "items": []},
@@ -58,8 +58,10 @@ PLAN_SCHEMA = {
                 "style": {"type": "string", "enum": CAPTION_STYLES},
                 "position": {"type": "string", "enum": ["bottom", "middle"]},
                 "words_per_line": {"type": "integer"},
+                "keywords": {"type": "array", "items": {"type": "string"},
+                             "description": "Reel style: words to show big and bold (rooms, prices, wow words)."},
             },
-            "required": ["enabled", "style", "position", "words_per_line"],
+            "required": ["enabled", "style", "position", "words_per_line", "keywords"],
             "additionalProperties": False,
         },
         "broll": {
@@ -134,8 +136,11 @@ How the plan works:
   "wait let me start again" moments, off-topic rambles, or anything the user asks to cut.
   Use transcript times for range boundaries.
 - captions: burned-in subtitles from the transcript. style bold = big punchy words with the
-  current word highlighted (social media look), clean = classic subtitles, boxed = text on a dark
-  box. words_per_line 2-4 for bold, 5-8 for clean/boxed.
+  current word highlighted (social media look), reel = property-tour reel look: 1-2 words at a time
+  in the middle of the screen, popping in as spoken, with key words (rooms, prices, sizes, wow words)
+  huge in capitals and the word next to them small and italic; list those key words in "keywords"
+  (exact words from the transcript, about one every 2-4 seconds). clean = classic subtitles,
+  boxed = text on a dark box. words_per_line 2-4 for bold, 2 for reel, 5-8 for clean/boxed.
 - broll: cutaway clips placed OVER the voice (voice keeps playing). Choose moments where the
   speaker describes something visual. Each 2-6 seconds, not overlapping, at least ~4 seconds
   apart, never in the first 2 seconds. Prefer the user's own clips (source "own", clip = exact
@@ -207,6 +212,8 @@ def normalize_plan(plan: dict, duration: float, own_clips: list[dict], sfx_names
     if cap.get("position") not in ("bottom", "middle"):
         cap["position"] = "bottom"
     cap["words_per_line"] = int(_clamp(cap.get("words_per_line"), 1, 10, 3))
+    kws = cap.get("keywords") if isinstance(cap.get("keywords"), list) else []
+    cap["keywords"] = [str(k)[:40] for k in kws if str(k).strip()][:200]
     own_names = {c["file"]: c for c in own_clips}
     by_basename = {Path(c["file"]).name: c["file"] for c in own_clips}
     broll, last_end = [], -1.0
@@ -437,6 +444,9 @@ def plan_with_rules(prompt, transcript, own_clips, previous_plan=None, style=Non
     if _has(p, "clean", "simple", "classic"):
         plan["captions"].update(style="clean", words_per_line=6)
         notes.append("switched to clean captions")
+    elif _has(p, "reel", "tour style", "big words", "middle captions"):
+        plan["captions"].update(style="reel", position="middle", words_per_line=2)
+        notes.append("switched to reel-style captions")
     elif _has(p, "boxed", "box"):
         plan["captions"].update(style="boxed", words_per_line=6)
         notes.append("switched to boxed captions")

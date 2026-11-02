@@ -251,3 +251,13 @@ def test_learn_style_and_apply(env, monkeypatch):
     out = probe(jobs.job_dir(job["id"]) / v["file"])
     assert (out.width, out.height) == (1080, 1920)
     assert out.duration < 14  # 20s of long takes trimmed to the reference's quick rhythm
+
+
+def test_reel_captions():
+    from autoedit.captions import build_ass
+
+    words = [{"text": t, "start": s, "end": e} for t, s, e in
+             [("welcome", 0.1, 0.5), ("to", 0.5, 0.6), ("the", 0.6, 0.7), ("kitchen", 0.8, 1.3), ("area", 1.3, 1.8)]]
+    ass = build_ass(words, 1080, 1920, "reel", "middle", 2, [])
+    assert "KITCHEN" in ass and "\\N" in ass and "\\i1" in ass  # big key word, small italic partner
+    assert ass.count("Dialogue:") == len(words)  # each word pops in as it's spoken

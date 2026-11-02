@@ -45,7 +45,12 @@ Study the EDITING STYLE only (not the property): framing/shape, how fast it cuts
 screen (are there any, size, position, bold/clean/boxed look, how many words at a time), colour/mood,
 and what music and sound effects would fit. Then fill in the fields. "instructions" should be written for
 an editor applying this style to different footage, e.g. "Fast 1.5-2 second shots, punchy upbeat music,
-big bold captions in the middle, whoosh between shots"."""
+big bold captions in the middle, whoosh between shots".
+Caption styles: "reel" = 1-2 words at a time in the middle, key words huge in capitals with a smaller
+(often italic) word next to them, popping in as spoken (typical property-tour reel); "bold" = 2-4
+chunky words near the bottom with the spoken word highlighted; "clean" = classic subtitles;
+"boxed" = text on a dark box. Ignore any app interface around the video (icons, like buttons,
+black bars from a screen recording)."""
 
 
 def styles_dir() -> Path:
@@ -98,6 +103,7 @@ def hints_from(ai: dict, shot_seconds: float, has_speech: bool) -> dict:
             "style": ai.get("caption_style", "bold"),
             "position": ai.get("caption_position", "bottom"),
             "words_per_line": int(max(1, min(10, ai.get("words_per_line", 3)))),
+            "keywords": [],
         },
         "music": {"enabled": True, "mood": ai.get("music_mood", "upbeat"),
                   "volume": float(max(0.1, min(1.0, ai.get("music_volume", 0.5)))), "track": ""},

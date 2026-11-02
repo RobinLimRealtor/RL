@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from .cutting import TimeMap, is_filler
+import re
+
+from .cutting import TimeMap, is_filler, normalize
+
+# Words that make good "big" caption words even without a keyword list.
+_ROOM_WORDS = {"kitchen", "bedroom", "bathroom", "toilet", "balcony", "living", "dining", "garden", "pool",
+               "garage", "study", "patio", "rooftop", "terrace", "yard", "backyard", "master", "attic", "basement",
+               "landed", "condo", "price", "sold", "sale", "new", "now", "huge", "luxury", "view", "views"}
+_COMMON = {"because", "actually", "something", "everything", "anything", "through", "another", "between",
+           "without", "already", "probably", "basically", "literally", "there's", "that's", "they're"}
 
 
 def _ass_time(t: float) -> str:
@@ -55,9 +64,73 @@ def chunk_words(words: list[dict], per_line: int) -> list[list[dict]]:
     return chunks
 
 
-def build_ass(words: list[dict], width: int, height: int, style: str, position: str, per_line: int) -> str:
+def is_keyword(word: str, keywords: set[str]) -> bool:
+    n = normalize(word)
+    if not n and not re.search(r"\d", word):
+        return False
+    if keywords:
+        return n in keywords or bool(re.search(r"[\d$%]", word))
+    return bool(re.search(r"[\d$%]", word)) or n in _ROOM_WORDS or (len(n) >= 8 and n not in _COMMON)
+
+
+def _reel_events(words, width, height, keywords, per_line):
+    """Social-media tour look: 1-2 words in the middle, words pop in as they're spoken,
+    key words big and bold in capitals, other words smaller (italic when paired with a key word)."""
+    kw = {normalize(k) for k in keywords if normalize(k)}
+    lines = []
+    per_line = max(1, min(per_line, 3))
+    # Chunks: a key word always starts a new chunk, so it leads ("TASTEFULLY / renovated").
+    chunks, cur = [], []
+    for w in words:
+        key = is_keyword(w["text"], kw)
+        if cur and (key or len(cur) >= per_line or w["start"] - cur[-1]["end"] > 0.6):
+            chunks.append(cur)
+            cur = []
+        cur.append(w)
+        if w["text"][-1:] in ".?!":
+            chunks.append(cur)
+            cur = []
+    if cur:
+        chunks.append(cur)
     base = min(width, height)
-    if style == "bold":
+    big, small, plain = int(base * 0.14), int(base * 0.07), int(base * 0.08)
+    for ci, chunk in enumerate(chunks):
+        end_of_chunk = chunk[-1]["end"] + 0.3
+        if ci + 1 < len(chunks):
+            end_of_chunk = min(end_of_chunk, chunks[ci + 1][0]["start"])
+        flags = [is_keyword(w["text"], kw) for w in chunk]
+        first = flags.index(True) if True in flags else -1
+        flags = [k == first for k in range(len(chunk))]  # at most one big word per chunk
+        has_key = any(flags)
+        for i, w in enumerate(chunk):
+            start = w["start"]
+            end = chunk[i + 1]["start"] if i + 1 < len(chunk) else end_of_chunk
+            if end - start < 0.04:
+                continue
+            parts = []
+            for j, (cw, key) in enumerate(zip(chunk[: i + 1], flags)):
+                t = _escape(cw["text"]).strip(",.;:")
+                if key:
+                    color = "\\c&H00D7FF&" if re.search(r"[\d$%]", t) else ""
+                    piece = f"{{\\fnArial Black\\fs{big}\\b1\\i0{color}}}{t.upper()}"
+                elif has_key:
+                    piece = f"{{\\fnGeorgia\\fs{small}\\b0\\i1\\c&HFFFFFF&}}{t.lower()}"
+                else:
+                    piece = f"{{\\fnArial\\fs{plain}\\b1\\i0\\c&HFFFFFF&}}{t.lower()}"
+                pop = "{\\fscx125\\fscy125\\t(0,110,\\fscx100\\fscy100)}" if j == i else ""
+                parts.append(pop + piece + "{\\fscx100\\fscy100}")
+            sep = "\\N" if has_key else " "
+            lines.append(f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Default,,0,0,0,,{sep.join(parts)}")
+    return lines
+
+
+def build_ass(words: list[dict], width: int, height: int, style: str, position: str, per_line: int,
+              keywords: list[str] | None = None) -> str:
+    base = min(width, height)
+    if style == "reel":
+        size, bold, outline, shadow, border = int(base * 0.075), -1, max(2, base // 360), max(3, base // 180), 1
+        font = "Arial"
+    elif style == "bold":
         size, bold, outline, shadow, border = int(base * 0.09), -1, max(4, base // 150), 0, 1
         font = "Arial Black"
     elif style == "boxed":
@@ -66,7 +139,8 @@ def build_ass(words: list[dict], width: int, height: int, style: str, position: 
     else:
         size, bold, outline, shadow, border = int(base * 0.058), -1, max(2, base // 300), max(1, base // 400), 1
         font = "Arial"
-    margin_v = int(height * (0.30 if position == "middle" else 0.09))
+    margin_v = int(height * (0.40 if style == "reel" and position == "middle" else
+                             0.30 if position == "middle" else 0.09))
     margin_h = int(width * 0.08)
     back = "&H80000000" if style == "boxed" else "&H64000000"
     header = f"""[Script Info]
@@ -83,6 +157,8 @@ Style: Default,{font},{size},&H00FFFFFF,&H00FFFFFF,{'&H80000000' if style == 'bo
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
+    if style == "reel":
+        return header + "\n".join(_reel_events(words, width, height, keywords or [], per_line)) + "\n"
     lines = []
     chunks = chunk_words(words, per_line)
     for ci, chunk in enumerate(chunks):

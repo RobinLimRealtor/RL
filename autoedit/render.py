@@ -97,7 +97,8 @@ def render(*, src: Path, info: MediaInfo, plan: dict, transcript: dict, segments
     if use_captions:
         c = plan["captions"]
         (work / "captions.ass").write_text(
-            cap.build_ass(words, w, h, c["style"], c["position"], c["words_per_line"]), "utf-8")
+            cap.build_ass(words, w, h, c["style"], c["position"], c["words_per_line"], c.get("keywords", [])),
+            "utf-8")
 
     # 3) Compose b-roll, captions, music and sound effects in one pass.
     args = ["-i", "base.mkv"]
