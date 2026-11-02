@@ -1,5 +1,7 @@
 anthropic>=2.3,<3
 faster-whisper>=1.2,<2
+# av 19 removed an option faster-whisper still uses
+av>=12,<19
 imageio-ffmpeg>=0.6
 numpy>=1.26
 flask>=3.0,<4

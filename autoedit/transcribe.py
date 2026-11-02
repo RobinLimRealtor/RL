@@ -23,11 +23,26 @@ def _get_model(size: str):
         return _models[size]
 
 
+def _load_wav(path) -> "np.ndarray":
+    """Read our 16 kHz mono 16-bit WAV straight into memory.
+
+    We hand Whisper raw samples instead of a file name so it never has to open
+    the file itself (its file reader breaks with some versions of a helper library).
+    """
+    import wave
+
+    import numpy as np
+
+    with wave.open(str(path), "rb") as w:
+        frames = w.readframes(w.getnframes())
+    return np.frombuffer(frames, dtype="<i2").astype(np.float32) / 32768.0
+
+
 def transcribe(audio_path: str | Path, model_size: str = "small", progress=None) -> dict:
     """Returns {"language", "words": [{text,start,end}], "segments": [{text,start,end}]}."""
     model = _get_model(model_size)
     segments_iter, info = model.transcribe(
-        str(audio_path),
+        _load_wav(audio_path),
         word_timestamps=True,
         initial_prompt=_DISFLUENT_PROMPT,
         condition_on_previous_text=False,
