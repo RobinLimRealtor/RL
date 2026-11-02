@@ -66,7 +66,13 @@ Cost is usually a few cents per video, and the first scan of a big b-roll folder
 
 ### Free stock b-roll
 
-For stock footage when your own clips don't fit, get a free key at <https://www.pexels.com/api/> and paste it under **Stock b-roll** in Settings.
+For stock footage when your own clips don't fit, get a free **Pixabay** key:
+
+1. Sign up for free at <https://pixabay.com/accounts/register/> (or log in).
+2. Open <https://pixabay.com/api/docs/>. Scroll to **Search Images**. Your key is shown next to `key`.
+3. Copy it, then in the editor open **Settings** and paste it under **Stock b-roll**. Click **Save**.
+
+A Pexels key works too, if you already have one.
 
 ---
 
@@ -109,7 +115,7 @@ autoedit/
   captions.py     .ass (burned in, word highlight) and .srt
   render.py       ffmpeg: cut segments, concat, overlay b-roll, captions, music ducking, SFX, loudness
   library.py      own b-roll scan and AI tagging, music/SFX library, built-in synthesized audio
-  stock.py        Pexels stock video search/download
+  stock.py        Pixabay / Pexels stock video search and download
   static/         the web page
 ```
 

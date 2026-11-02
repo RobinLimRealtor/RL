@@ -19,6 +19,7 @@ SETTINGS_FILE = WORKSPACE / "settings.json"
 
 DEFAULTS = {
     "anthropic_api_key": "",
+    "pixabay_api_key": "",
     "pexels_api_key": "",
     "claude_model": "claude-opus-5-5",
     # tiny / base / small / medium / large-v3. "small" is a good balance on a laptop.
@@ -45,6 +46,8 @@ def load_settings() -> dict:
     # Environment variables win, so power users can skip the settings screen.
     if os.environ.get("ANTHROPIC_API_KEY"):
         data["anthropic_api_key"] = os.environ["ANTHROPIC_API_KEY"]
+    if os.environ.get("PIXABAY_API_KEY"):
+        data["pixabay_api_key"] = os.environ["PIXABAY_API_KEY"]
     if os.environ.get("PEXELS_API_KEY"):
         data["pexels_api_key"] = os.environ["PEXELS_API_KEY"]
     return data

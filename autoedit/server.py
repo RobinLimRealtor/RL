@@ -38,7 +38,7 @@ def status():
     return jsonify({
         "version": __version__,
         "claude": bool(s["anthropic_api_key"]),
-        "stock": bool(s["pexels_api_key"]),
+        "stock": bool(s["pixabay_api_key"] or s["pexels_api_key"]),
         "broll_folder": str(folder),
         "broll_count": len(clips),
         "music_folder": str(config.MUSIC_DIR),
@@ -52,6 +52,7 @@ def get_settings():
     s = config.load_settings()
     return jsonify({
         "anthropic_api_key": _mask(s["anthropic_api_key"]),
+        "pixabay_api_key": _mask(s["pixabay_api_key"]),
         "pexels_api_key": _mask(s["pexels_api_key"]),
         "whisper_model": s["whisper_model"],
         "claude_model": s["claude_model"],
@@ -63,7 +64,7 @@ def get_settings():
 def post_settings():
     data = request.get_json(force=True) or {}
     changes = {}
-    for key in ("anthropic_api_key", "pexels_api_key"):
+    for key in ("anthropic_api_key", "pixabay_api_key", "pexels_api_key"):
         val = data.get(key)
         if isinstance(val, str) and "…" not in val and val != "set":
             changes[key] = val

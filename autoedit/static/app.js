@@ -179,6 +179,7 @@ $("newBtn").onclick = showNew;
 async function openSettings() {
   const s = await api("/api/settings");
   $("anthropicKey").value = s.anthropic_api_key;
+  $("pixabayKey").value = s.pixabay_api_key;
   $("pexelsKey").value = s.pexels_api_key;
   $("brollFolder").value = s.broll_folder;
   $("whisperModel").value = s.whisper_model;
@@ -194,7 +195,7 @@ $("saveSettings").onclick = async () => {
     await api("/api/settings", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        anthropic_api_key: $("anthropicKey").value, pexels_api_key: $("pexelsKey").value,
+        anthropic_api_key: $("anthropicKey").value, pixabay_api_key: $("pixabayKey").value, pexels_api_key: $("pexelsKey").value,
         broll_folder: $("brollFolder").value, whisper_model: $("whisperModel").value,
       }),
     });

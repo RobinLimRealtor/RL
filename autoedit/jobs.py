@@ -107,7 +107,7 @@ def process(job_id: str, prompt: str) -> None:
     settings = config.load_settings()
     api_key = settings.get("anthropic_api_key", "")
     model = settings.get("claude_model") or config.DEFAULTS["claude_model"]
-    pexels_key = settings.get("pexels_api_key", "")
+    has_stock = stock.available(settings)
     d = job_dir(job_id)
     job = update(job_id, status="working", step="Reading your video", progress=0.01)
     src = d / job["source"]
@@ -147,7 +147,7 @@ def process(job_id: str, prompt: str) -> None:
         try:
             raw = planner.plan_with_claude(
                 api_key=api_key, model=model, prompt=prompt, transcript=transcript, duration=info.duration,
-                video_shape=shape, own_clips=own_clips, stock_available=bool(pexels_key),
+                video_shape=shape, own_clips=own_clips, stock_available=has_stock,
                 music_tracks=library.music_tracks(), sfx_names=library.sfx_names(),
                 previous_plan=previous, history=history)
         except Exception as exc:  # noqa: BLE001 - fall back to simple rules, but tell the user
@@ -170,9 +170,9 @@ def process(job_id: str, prompt: str) -> None:
         path = None
         if b["source"] == "own":
             path = folder / b["clip"]
-        elif pexels_key:
+        elif has_stock:
             try:
-                found = stock.find_and_download(b["query"], pexels_key, portrait, out_e - out_s, used_stock)
+                found = stock.find_and_download(b["query"], settings, portrait, out_e - out_s, used_stock)
                 if found:
                     path, sid = found
                     used_stock.add(sid)
@@ -189,7 +189,7 @@ def process(job_id: str, prompt: str) -> None:
         broll.append(BrollPlacement(path, round(out_s, 3), round(out_e, 3), offset))
     if skipped:
         note += f" {skipped} b-roll spot(s) were skipped because no matching clip was found" + \
-            ("" if pexels_key else " (add a free Pexels key in Settings for stock footage)") + "."
+            ("" if has_stock else " (add a free Pixabay key in Settings for stock footage)") + "."
 
     sfx = []
     on_broll = plan["sfx"]["on_broll"]

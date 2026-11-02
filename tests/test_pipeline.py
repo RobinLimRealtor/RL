@@ -153,3 +153,36 @@ def test_claude_request_shape(monkeypatch):
     assert body["output_config"]["format"]["type"] == "json_schema"
     assert "vertical please" in body["messages"][0]["content"][0]["text"]
     assert planner.normalize_plan(out, 12, [], ["whoosh"])["format"] == "vertical"
+
+
+def test_pixabay_pick(env, monkeypatch):
+    from autoedit import stock
+
+    class Resp:
+        def __init__(self, data=None):
+            self.data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self.data
+
+    calls = []
+
+    def fake_get(url, params=None, timeout=None, **kw):
+        calls.append((url, params))
+        return Resp({"hits": [
+            {"id": 1, "duration": 2, "videos": {"large": {"url": "", "width": 0, "height": 0},
+                                                "medium": {"url": "https://x/1.mp4", "width": 1280, "height": 720}}},
+            {"id": 2, "duration": 9, "videos": {"large": {"url": "https://x/2.mp4", "width": 1920, "height": 1080},
+                                                "medium": {"url": "https://x/2m.mp4", "width": 1280, "height": 720}}},
+        ]})
+
+    downloaded = []
+    monkeypatch.setattr(stock.requests, "get", fake_get)
+    monkeypatch.setattr(stock, "_download", lambda link, name: downloaded.append(link) or Path(name))
+    path, sid = stock.find_and_download("modern kitchen", {"pixabay_api_key": "k"}, False, 5.0)
+    assert sid == "pixabay:2" and downloaded == ["https://x/2.mp4"]
+    assert calls[0][1]["q"] == "modern kitchen"
+    assert stock.find_and_download("kitchen", {}, False, 5.0) is None

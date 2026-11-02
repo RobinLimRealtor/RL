@@ -88,9 +88,11 @@
     <p class="small muted">With a Claude API key, the editor understands any request, picks the best b-roll moments and removes bad takes. Without one, it runs in simple mode. Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> (usually a few cents per video).</p>
     <input id="anthropicKey" placeholder="sk-ant-…" autocomplete="off">
 
-    <h3>Stock b-roll (Pexels, free)</h3>
-    <p class="small muted">Lets the editor download free stock clips when your own folder doesn't have a match. Free key at <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a>.</p>
-    <input id="pexelsKey" placeholder="Pexels API key" autocomplete="off">
+    <h3>Stock b-roll (free)</h3>
+    <p class="small muted">Lets the editor download free stock clips when your own folder doesn't have a match. Get a free Pixabay key: sign up at <a href="https://pixabay.com/accounts/register/" target="_blank" rel="noopener">pixabay.com</a>, then open <a href="https://pixabay.com/api/docs/" target="_blank" rel="noopener">pixabay.com/api/docs</a>. Scroll to "Search Images" and copy your key, shown next to <b>key</b>.</p>
+    <input id="pixabayKey" placeholder="Pixabay API key" autocomplete="off">
+    <p class="small muted" style="margin-top:8px">Optional: a Pexels key works too, if you have one.</p>
+    <input id="pexelsKey" placeholder="Pexels API key (optional)" autocomplete="off">
 
     <h3>Your b-roll</h3>
     <p class="small muted">Folder with your own clips (house exteriors, rooms, drone shots, you walking in…). The editor looks at each clip to know what's in it. <span id="brollCount"></span></p>
